@@ -28,8 +28,8 @@ def plot_raster(pop, i_history, runtime, dt):
     spike_history, idx_neuron, neuron_type, activity = \
         generate_spike_data(pop, runtime, dt, conv_size=5)
 
-    fig = plt.figure(figsize=(8, 8))
-    gs = fig.add_gridspec(3, 1)
+    fig = plt.figure(figsize=(8, 6))
+    gs = fig.add_gridspec(2, 1)
     raster = fig.add_subplot(gs[0, 0])
     raster.set_title("Raster plot")
     raster.set(ylabel="Neuron", xlabel="time(S)")
@@ -41,10 +41,5 @@ def plot_raster(pop, i_history, runtime, dt):
     pop_activity.set(ylabel="A(t)", xlabel="time(S)")
     sns.lineplot(ax=pop_activity, x=np.arange(0, runtime, dt), y=activity)
     pop_activity.set(ylim=(0, 0.007))
-
-    curr = fig.add_subplot(gs[2, 0])
-    curr.set_title("Input current")
-    curr.set(ylabel="I", xlabel="time(S)")
-    sns.lineplot(ax=curr, x=np.arange(0, runtime, dt), y=i_history)
 
     fig.show()

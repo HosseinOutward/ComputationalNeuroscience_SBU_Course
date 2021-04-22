@@ -14,11 +14,11 @@ def plot_mv_ms(mv, time_list, name=1, top=None, bottom=None):
     plt.show()
 
 
-def plot_current(current, time_list, name=1):
+def plot_current(current, time_list, name=""):
     plt.plot(time_list, current)
     plt.ylabel('Input current (pA)')
     plt.xlabel('Time (ms)')
-    if name!=1: name=" for "+name
+    if name!="": name=" for "+name
     name="Time-Current"+name
     plt.title(name)
     # plt.savefig(name)
@@ -61,7 +61,7 @@ def random_smooth_array(l):
         y += random.normal(scale=1)
     r_x=10
     random_array=convolve(array(result), ones((r_x,)) / r_x)[(r_x - 1):]
-    return lambda x: abs(random_array[int(x*10)])*200
+    return lambda x: abs(random_array[int(x*10)])*10
 
 
 if __name__ == "__main__":

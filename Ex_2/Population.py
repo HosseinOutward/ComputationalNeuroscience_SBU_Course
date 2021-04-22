@@ -1,6 +1,7 @@
 from Ex_1.Neurons import *
 from numpy.random import normal as np_normal
 from numpy.random import random as np_random
+from numpy import arange
 
 
 class FullyConnectedPopulation:
@@ -82,24 +83,32 @@ class FullyConnectedPops(FullyConnectedPopulation):
 
 
 if __name__ == "__main__":
+    from Ex_1.analysis import random_smooth_array, plot_current
     from Ex_2.analysis import *
+
+    dt=0.03125; runtime=100; time_steps=int(runtime//dt)
+    curr_func = random_smooth_array(time_steps)
+
     model = FullyConnectedPops(
-        J=9,
-        pre_pop = FullyConnectedPopulation(
-            n_type=AELIF, excit_count=800, inhib_count=200, J=4.5,
-            n_config="dt=0.03125, R=10, tau=8, theta=-40, U_rest=-70, U_reset=-65, U_spike=5, "
+        J=10,
+        pre_pop=FullyConnectedPopulation(
+            n_type=AELIF, excit_count=800, inhib_count=200, J=6.5,
+            n_config="dt="+str(dt)+", R=10, tau=8, theta=-40, U_rest=-70, U_reset=-65, U_spike=5, "
                      "ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100"),
-        post_pop = FullyConnectedPopulation(
-            n_type=AELIF, excit_count=700, inhib_count=300, J=4.5,
-            n_config="dt=0.03125, R=10, tau=8, theta=-40, U_rest=-70, U_reset=-65, U_spike=5, "
+        post_pop=FullyConnectedPopulation(
+            n_type=AELIF, excit_count=700, inhib_count=300, J=7.5,
+            n_config="dt="+str(dt)+", R=10, tau=8, theta=-40, U_rest=-70, U_reset=-65, U_spike=5, "
                      "ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
     )
 
-    u_history=[]
-    i_history=[]
-    for i in range(3200):
-        u, cur = model.simulate_network_one_step(2500)
+    u_history=[]; i_history=[]
+    for t in range(time_steps):
+        u, cur = model.simulate_network_one_step(curr_func(t))
         u_history.append(u)
         i_history.append(cur)
-    plot_raster(model.pre_pop, i_history, 3200*0.03125, 0.03125)
+
+    plot_current(i_history, arange(0,runtime, dt))
+    plot_raster(model.pre_pop, i_history, runtime, dt)
+    plot_raster(model.post_pop, i_history, runtime, dt)
+
 
