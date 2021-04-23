@@ -2,15 +2,15 @@ from matplotlib import pyplot as plt
 from Ex_1.Neurons import simulate_with_func, AELIF, LIF, ELIF
 
 
-def plot_mv_ms(mv, time_list, name=1, top=None, bottom=None):
+def plot_mv_ms(mv, time_list, name="", top=None, bottom=None):
     plt.plot(time_list, mv)
     plt.ylim(top=top, bottom=bottom)
     plt.ylabel('Membrane Potential (mV)')
     plt.xlabel('Time (ms)')
-    if name!=1: name=" for "+name
+    if name!="": name=" for "+name
     name="Voltage-Current"+name
     plt.title(name)
-    # plt.savefig(name)
+    plt.savefig(name)
     plt.show()
 
 
@@ -21,7 +21,7 @@ def plot_current(current, time_list, name=""):
     if name!="": name=" for "+name
     name="Time-Current"+name
     plt.title(name)
-    # plt.savefig(name)
+    plt.savefig(name)
     plt.show()
 
 
@@ -61,7 +61,23 @@ def random_smooth_array(l):
         y += random.normal(scale=1)
     r_x=10
     random_array=convolve(array(result), ones((r_x,)) / r_x)[(r_x - 1):]
-    return lambda x: abs(random_array[int(x*10)])*10
+    return lambda x: abs(random_array[int(x*10)])*150
+
+
+def limited_sin(time_steps):
+    from math import sin
+    from random import random
+
+    rand_array = random_smooth_array(time_steps)
+
+    a=[]
+    for t in range(time_steps):
+        x=t/time_steps*22+0.001
+        if x>=15:
+            a.append(a[-1]*0.999)
+        else:
+            a.append(2*sin(x)/x+sin(x*0.8)+2+rand_array(t)/20000)
+    return lambda i: a[int(i)]*800
 
 
 if __name__ == "__main__":
@@ -70,11 +86,11 @@ if __name__ == "__main__":
     # **************************************************
     # config = ["LIF","dt=dt, R=10, tau=8, theta=-45, U_rest=-79, U_reset=-65, U_spike=5"]
     config = ["AELIF","dt=dt, R=10, tau=8, theta=-40, U_rest=-70, U_reset=-65, U_spike=5,"
-                "ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100"]
+              "ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100"]
     # config = ["AELIF","dt=dt, R=10, tau=8, theta=-50, U_rest=-70, U_reset=-65, U_spike=10,"
-    #             "ref_period=0, ref_time=0, theta_rh=-58, delta_t=1, a=0.01, b=500, tau_k=100"]
+    #           "ref_period=0, ref_time=0, theta_rh=-58, delta_t=1, a=0.01, b=500, tau_k=100"]
     # config = ["ELIF","dt=dt, R=10, tau=8, theta=-40, U_rest=-70, U_reset=-65, U_spike=5,"
-    #             "ref_period=2, ref_time=0, theta_rh=-45, delta_t=2"]
+    #           "ref_period=2, ref_time=0, theta_rh=-45, delta_t=2"]
 
     # **************************************************
     # *****freq*****

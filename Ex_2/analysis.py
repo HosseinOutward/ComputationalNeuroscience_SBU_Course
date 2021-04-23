@@ -2,6 +2,7 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 from Ex_2.Population import *
+import pickle
 
 
 def generate_spike_data(pop, runtime, dt, conv_size = 10):
@@ -17,17 +18,14 @@ def generate_spike_data(pop, runtime, dt, conv_size = 10):
         spike_history+=neuron.t_fired
 
     activity = np.bincount(np.array(np.array(spike_history)//dt, dtype = int))
-    activity = np.pad(activity, (0, int(runtime//dt-len(activity))), 'constant')
+    activity = np.pad(activity, (0, int(runtime//dt-len(activity)+1)), 'constant')[:int(runtime//dt)]
     conv=int(conv_size * (.1 / dt))
     activity = np.convolve(activity, conv*[1/conv], "same")/len(pop.neurons)
 
     return spike_history, idx_neuron, neuron_type, activity
 
 
-def plot_raster(pop, i_history, runtime, dt):
-    spike_history, idx_neuron, neuron_type, activity = \
-        generate_spike_data(pop, runtime, dt, conv_size=5)
-
+def plot_raster(spike_history, idx_neuron, neuron_type, activity, runtime, dt):
     fig = plt.figure(figsize=(8, 6))
     gs = fig.add_gridspec(2, 1)
     raster = fig.add_subplot(gs[0, 0])
