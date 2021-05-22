@@ -25,19 +25,20 @@ def generate_spike_data(pop, runtime, dt, conv_size = 10):
     return spike_history, idx_neuron, neuron_type, activity
 
 
-def plot_raster(spike_history, idx_neuron, neuron_type, activity, runtime, dt):
+def plot_raster(spike_history, idx_neuron, neuron_type, activity, runtime, dt, min_t=0):
     fig = plt.figure(figsize=(8, 6))
     gs = fig.add_gridspec(2, 1)
     raster = fig.add_subplot(gs[0, 0])
     raster.set_title("Raster plot")
     raster.set(ylabel="Neuron", xlabel="time(S)")
     sns.scatterplot(ax=raster, y=idx_neuron, x=spike_history, hue=neuron_type, marker='.')
-    raster.set(xlim=(0, runtime))
+    raster.set(xlim=(min_t, runtime))
 
     pop_activity = fig.add_subplot(gs[1, 0])
     pop_activity.set_title("Population activity")
     pop_activity.set(ylabel="A(t)", xlabel="time(S)")
     sns.lineplot(ax=pop_activity, x=np.arange(0, runtime, dt), y=activity)
     pop_activity.set(ylim=(0, 0.007))
+    pop_activity.set(xlim=(min_t, runtime))
 
     fig.show()
