@@ -73,11 +73,8 @@ def limited_sin(time_steps):
     a=[]
     for t in range(time_steps):
         x=t/time_steps*22+0.001
-        if x>=15:
-            a.append(a[-1]*0.999)
-        else:
-            a.append(2*sin(x)/x+sin(x*0.8)+2+rand_array(t)/20000)
-    return lambda i: a[int(i)]*800
+        a.append(2*sin(x)/x+sin(x*0.8)+1.5+rand_array(t)/50000)
+    return lambda i: a[int(i)]*900
 
 
 if __name__ == "__main__":
