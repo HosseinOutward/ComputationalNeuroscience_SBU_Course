@@ -1,4 +1,5 @@
 from math import exp
+import itertools
 
 
 class LIF:
@@ -22,6 +23,7 @@ class LIF:
         self.post_syn = []
         self.pre_syn_input = 0
         self.syn_input = 0
+        self.pre_syn = []
 
     def change_u(self, I_t):
         self.U+=(self.U_rest - self.U + self.R * I_t) * self.dt / self.tau
@@ -47,7 +49,8 @@ class LIF:
         self.U += self.syn_input
 
         if self.U >= self.theta: self.fire()
-        if len(self.t_fired)!=0 and self.internal_clock <= self.t_fired[-1]+1: self.send_pulse()
+        # if len(self.t_fired)!=0 and self.internal_clock <= self.t_fired[-1]+1: self.send_pulse()
+        if self.dirac() > 0: self.send_pulse()
 
         return self.U, I_t
 
@@ -56,11 +59,12 @@ class LIF:
             post_neuron.pre_syn_input = self.is_exc * weight * self.dirac()
 
     def dirac(self):
-        return int(self.last_fired)
+        ans = int(self.last_fired)
         # sum=0
-        # for t_f in self.t_fired:
-        #    sum+=exp(-(self.internal_clock-t_f)**4/2)
-        # return sum * (2*3.14159)**(-1/2)*2.5
+        # for t_f in self.t_fired: sum+=exp(-(self.internal_clock-t_f)**4/2)
+        # ans = sum * (2*3.14159)**(-1/2)*2.5
+        if ans >= 0.05: return ans
+        return 0
 
 
 class ELIF(LIF):

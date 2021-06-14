@@ -21,7 +21,8 @@ class FullyConnectedPopulation:
             for post_neuron in self.neurons:
                 if self.decide_to_connect() and post_neuron!=pre_neuron:
                     self.conection_count+=1
-                    pre_neuron.post_syn.append((post_neuron, self.decide_weight()))
+                    pre_neuron.post_syn.append( [post_neuron, self.decide_weight()] )
+                    post_neuron.pre_syn.append( [len(pre_neuron.post_syn)-1, pre_neuron] )
 
     def decide_to_connect(self):
         return True
@@ -29,15 +30,43 @@ class FullyConnectedPopulation:
     def decide_weight(self):
         return self.J / self.conection_count + np_normal(0.0, 0.001)
 
+    def STDP(self, neuron):
+        def delta_w(pre_n, post_n, pre_w):
+            def w_func(x):
+                is_exc = True if pre_n.is_exc==1 else False
+                if x>=0:
+                    phi_p = 0.01 if is_exc else 0.03
+                    return (phi_p*10*(2-pre_w)) * exp(-x/0.6)#(phi_p*(1-pre_w)) * exp(x/20)
+                phi_n = 0.015 if is_exc else 0.045
+                return (-phi_n*10*pre_w) * exp(x/0.6)#(-phi_n*pre_w) * exp(-x/20)
+
+            delta=0
+            for t_j, t_i in itertools.product(pre_n.t_fired, post_n.t_fired):
+                delta += w_func(t_i-t_j)
+            return delta
+
+        for i, (post_neuron, w) in enumerate(neuron.post_syn):
+            neuron.post_syn[i][1] += delta_w(neuron, post_neuron, w)
+
+        for i, pre_neuron in neuron.pre_syn:
+            w = pre_neuron.post_syn[i][1]
+            pre_neuron.post_syn[i][1] += delta_w(pre_neuron, neuron, w)
+
     def simulate_network_one_step(self, I_t):
         u_history=[]
+        i_history=[]
         for neuron in self.neurons:
-            inter_U, _ = neuron.simulate_one_step(I_t)
+            inter_U, curr = neuron.simulate_one_step(I_t)
             u_history.append(inter_U)
+            i_history.append(curr)
+
         for neuron in self.neurons:
             neuron.syn_input = neuron.pre_syn_input
+            if neuron.last_fired: self.STDP(neuron)
+
         if neuron.internal_clock%20==0: print(neuron.internal_clock)
-        return u_history
+
+        return u_history, sum(i_history)/len(self.neurons)
 
 
 class FixedCouplingPopulation(FullyConnectedPopulation):
@@ -74,19 +103,8 @@ class FullyConnectedPops(FullyConnectedPopulation):
             for post_neuron in self.post_pop.neurons:
                 if self.decide_to_connect() and post_neuron!=pre_neuron:
                     self.conection_count+=1
-                    pre_neuron.post_syn.append((post_neuron, self.decide_weight()))
-
-    def simulate_network_one_step(self, I_t):
-        u_history=[]
-        i_history=[]
-        for neuron in self.neurons:
-            inter_U, curr = neuron.simulate_one_step(I_t)
-            u_history.append(inter_U)
-            i_history.append(curr)
-        for neuron in self.neurons:
-            neuron.syn_input = neuron.pre_syn_input
-        if neuron.internal_clock%20==0: print(neuron.internal_clock)
-        return u_history, sum(i_history)/len(self.neurons)
+                    pre_neuron.post_syn.append( [post_neuron, self.decide_weight()] )
+                    post_neuron.pre_syn.append( [len(pre_neuron.post_syn)-1, pre_neuron] )
 
 
 class FixedCouplingPops(FullyConnectedPops):
@@ -128,7 +146,7 @@ if __name__ == "__main__":
                      "ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
         )
 
-    runtime=300; time_steps=int(runtime//dt)
+    runtime=240; time_steps=int(runtime//dt)
     curr_func = lambda x: 1515*(sin(x/time_steps*3.3+1)+1) # limited_sin(time_steps)
     u_history=[]; i_history=[]
     plot_current([curr_func(t) for t in range(time_steps)], arange(0,runtime, dt))
