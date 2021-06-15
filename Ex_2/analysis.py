@@ -13,6 +13,10 @@ def generate_spike_data(pop, runtime, dt, conv_size = 10):
         idx_neuron += [idx for i in neuron.t_fired]
 
         type=('exc' if neuron.is_exc == 1 else 'inh')
+        try:
+            if neuron in pop.output_neurons: type="output"
+            elif neuron in pop.input_neurons: type="input"
+        except: pass
         neuron_type += [type for i in neuron.t_fired]
 
         spike_history+=neuron.t_fired

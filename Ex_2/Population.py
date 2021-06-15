@@ -7,22 +7,29 @@ import pickle
 
 
 class FullyConnectedPopulation:
-    def __init__(self, n_type, n_config, J, excit_count, inhib_count):
+    def __init__(self, n_type, n_config, J, excit_count, inhib_count, stdp_eng=None):
         self.J=J
         self.neurons = []
         self.conection_count=0
+        self.stdp_eng=stdp_eng
 
         for i in range(excit_count):
             self.neurons.append(eval('n_type(is_exc=True, ' + n_config + ')'))
         for i in range(inhib_count):
             self.neurons.append(eval('n_type(is_exc=False, ' + n_config + ')'))
 
+        self.create_network()
+
+    def create_network(self):
         for pre_neuron in self.neurons:
             for post_neuron in self.neurons:
-                if self.decide_to_connect() and post_neuron!=pre_neuron:
-                    self.conection_count+=1
-                    pre_neuron.post_syn.append( [post_neuron, self.decide_weight()] )
-                    post_neuron.pre_syn.append( [len(pre_neuron.post_syn)-1, pre_neuron] )
+                self.connect_neurons(pre_neuron, post_neuron)
+
+    def connect_neurons(self, pre_neuron, post_neuron):
+        if self.decide_to_connect() and post_neuron != pre_neuron:
+            self.conection_count += 1
+            pre_neuron.post_syn.append([post_neuron, self.decide_weight()])
+            post_neuron.pre_syn.append([len(pre_neuron.post_syn) - 1, pre_neuron])
 
     def decide_to_connect(self):
         return True
@@ -30,27 +37,25 @@ class FullyConnectedPopulation:
     def decide_weight(self):
         return self.J / self.conection_count + np_normal(0.0, 0.001)
 
-    def STDP(self, neuron):
-        def delta_w(pre_n, post_n, pre_w):
-            def w_func(x):
-                is_exc = True if pre_n.is_exc==1 else False
-                if x>=0:
-                    phi_p = 0.01 if is_exc else 0.03
-                    return (phi_p*10*(2-pre_w)) * exp(-x/0.6)#(phi_p*(1-pre_w)) * exp(x/20)
-                phi_n = 0.015 if is_exc else 0.045
-                return (-phi_n*10*pre_w) * exp(x/0.6)#(-phi_n*pre_w) * exp(-x/20)
+    def draw_graph(self):
+        import networkx as nx
+        import pygraphviz
+        import matplotlib.pyplot as plt
+        ed=[]
+        for pre_n_i, pre_neuron in enumerate(self.neurons):
+            for post_neuron, w in pre_neuron.post_syn:
+                ed.append([pre_n_i, self.neurons.index(post_neuron), w*1000//1/1000])
+        G = nx.DiGraph()
+        G.add_weighted_edges_from(ed)
+        pos = nx.drawing.nx_agraph.graphviz_layout(G, prog='dot', args="-Grankdir=LR")
+        nx.draw(G,with_labels=True,pos=pos, font_weight='bold')
+        plt.show()
 
-            delta=0
-            for t_j, t_i in itertools.product(pre_n.t_fired, post_n.t_fired):
-                delta += w_func(t_i-t_j)
-            return delta
-
-        for i, (post_neuron, w) in enumerate(neuron.post_syn):
-            neuron.post_syn[i][1] += delta_w(neuron, post_neuron, w)
-
-        for i, pre_neuron in neuron.pre_syn:
-            w = pre_neuron.post_syn[i][1]
-            pre_neuron.post_syn[i][1] += delta_w(pre_neuron, neuron, w)
+    def fix_neurons(self, input_spike_list, output_spike_list):
+        for neuron, to_spike in zip(
+                self.input_neurons+self.output_neurons, input_spike_list+output_spike_list):
+            if to_spike: neuron.U=neuron.U_spike+10
+            elif neuron.U>neuron.U_reset: neuron.U=neuron.U_reset
 
     def simulate_network_one_step(self, I_t):
         u_history=[]
@@ -62,11 +67,11 @@ class FullyConnectedPopulation:
 
         for neuron in self.neurons:
             neuron.syn_input = neuron.pre_syn_input
-            if neuron.last_fired: self.STDP(neuron)
+            if self.stdp_eng!=None and neuron.last_fired: self.stdp_eng.train(neuron)
 
         if neuron.internal_clock%20==0: print(neuron.internal_clock)
 
-        return u_history, sum(i_history)/len(self.neurons)
+        return u_history, i_history
 
 
 class FixedCouplingPopulation(FullyConnectedPopulation):
@@ -90,21 +95,22 @@ class GaussianFullyConnected(FullyConnectedPopulation):
         return np_normal(self.J/self.conection_count, self.sigma/self.conection_count)
 
 
-# **************************
+# ************* 2 population *************
 class FullyConnectedPops(FullyConnectedPopulation):
-    def __init__(self, J, pre_pop, post_pop):
+    def __init__(self, J, pre_pop, post_pop, stdp_eng=None):
         self.J=J
         self.pre_pop = pre_pop
         self.post_pop = post_pop
         self.neurons = pre_pop.neurons+post_pop.neurons
         self.conection_count=0
+        self.stdp_eng=stdp_eng
 
+        self.create_network()
+
+    def create_network(self):
         for pre_neuron in self.pre_pop.neurons:
             for post_neuron in self.post_pop.neurons:
-                if self.decide_to_connect() and post_neuron!=pre_neuron:
-                    self.conection_count+=1
-                    pre_neuron.post_syn.append( [post_neuron, self.decide_weight()] )
-                    post_neuron.pre_syn.append( [len(pre_neuron.post_syn)-1, pre_neuron] )
+                self.connect_neurons(pre_neuron, post_neuron)
 
 
 class FixedCouplingPops(FullyConnectedPops):
@@ -146,7 +152,7 @@ if __name__ == "__main__":
                      "ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
         )
 
-    runtime=240; time_steps=int(runtime//dt)
+    runtime=300; time_steps=int(runtime//dt)
     curr_func = lambda x: 1515*(sin(x/time_steps*3.3+1)+1) # limited_sin(time_steps)
     u_history=[]; i_history=[]
     plot_current([curr_func(t) for t in range(time_steps)], arange(0,runtime, dt))

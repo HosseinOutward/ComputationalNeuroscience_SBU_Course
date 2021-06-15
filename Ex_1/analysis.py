@@ -2,7 +2,7 @@ from matplotlib import pyplot as plt
 from Ex_1.Neurons import simulate_with_func, AELIF, LIF, ELIF
 
 
-def plot_mv_ms(mv, time_list, name="", top=None, bottom=None):
+def plot_mv_ms(mv, time_list, name="", top=None, bottom=None, save=False):
     plt.plot(time_list, mv)
     plt.ylim(top=top, bottom=bottom)
     plt.ylabel('Membrane Potential (mV)')
@@ -10,27 +10,31 @@ def plot_mv_ms(mv, time_list, name="", top=None, bottom=None):
     if name!="": name=" for "+name
     name="Voltage-Current"+name
     plt.title(name)
-    plt.savefig(name)
+    if save: plt.savefig(name)
     plt.show()
 
 
-def plot_current(current, time_list, name=""):
+def plot_current(current, time_list, name="", save=False, max_x=0):
+    from matplotlib.pyplot import figure
+    figure(figsize=(10, 5), dpi=80)
     plt.plot(time_list, current)
     plt.ylabel('Input current (pA)')
     plt.xlabel('Time (ms)')
     if name!="": name=" for "+name
     name="Time-Current"+name
     plt.title(name)
-    plt.savefig(name)
+    plt.xlim(max_x)
+    if save: plt.savefig(name)
     plt.show()
 
 
-def plot_internal_current(current, time_list, name=1):
+def plot_internal_current(current, time_list, name=1,top=None, bottom=None):
     plt.plot(time_list, current)
     plt.ylabel('Adaption current (pA)')
     plt.xlabel('Time (ms)')
+    plt.ylim(top=top, bottom=bottom)
     if name!=1: name=" for "+name
-    name="Time-Adaption Current"+name
+    name="Time-Adaption Current"+str(name)
     plt.title(name)
     # plt.savefig(name)
     plt.show()

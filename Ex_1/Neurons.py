@@ -3,8 +3,8 @@ import itertools
 
 
 class LIF:
-    def __init__(self, dt=0.03125, tau=8, theta=-45, R=10, U_rest=-79,
-                 U_reset=-65, U_spike=5, ref_time=0, ref_period=0, is_exc=True):
+    def __init__(self, dt=0.03125, tau=8, theta=-45, R=10, U_rest=-79, U_reset=-65,
+                 U_spike=5, ref_time=0, ref_period=0, is_exc=True, *args, **kwargs):
         self.dt = dt
         self.tau = tau
         self.theta = theta
@@ -59,12 +59,12 @@ class LIF:
             post_neuron.pre_syn_input = self.is_exc * weight * self.dirac()
 
     def dirac(self):
-        ans = int(self.last_fired)
+        return int(self.last_fired)
         # sum=0
         # for t_f in self.t_fired: sum+=exp(-(self.internal_clock-t_f)**4/2)
         # ans = sum * (2*3.14159)**(-1/2)*2.5
-        if ans >= 0.05: return ans
-        return 0
+        # if ans >= 0.05: return ans
+        # return 0
 
 
 class ELIF(LIF):
@@ -123,5 +123,5 @@ if __name__ == "__main__":
 
     time_list=[i*dt for i in range(int(runtime//dt))]
     plot_mv_ms(U_over_t, time_list, top=-35, bottom=-80, name="AELIF, constant current")
-    # plot_internal_current(inter_curr, time_list, name="AELIF, constant current")
-    # plot_current(current, time_list, name="AELIF, constant current")
+    plot_internal_current(inter_curr, time_list, name="AELIF, constant current")
+    plot_current(current, time_list, name="AELIF, constant current")
