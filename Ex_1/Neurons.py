@@ -4,7 +4,7 @@ import itertools
 
 class LIF:
     def __init__(self, dt=0.03125, tau=8, theta=-45, R=10, U_rest=-79, U_reset=-65,
-                 U_spike=5, ref_time=0, ref_period=0, is_exc=True, *args, **kwargs):
+                 U_spike=5, ref_time=0, ref_period=0, weight_sens=1, is_exc=True, *args, **kwargs):
         self.dt = dt
         self.tau = tau
         self.theta = theta
@@ -18,6 +18,7 @@ class LIF:
         self.last_fired=False
         self.is_exc = 1 if is_exc else -1
 
+        self.weight_sens=weight_sens
         self.internal_clock = 0
         self.t_fired=[]
         self.post_syn = []
@@ -56,7 +57,7 @@ class LIF:
 
     def send_pulse(self):
         for (post_neuron, weight) in self.post_syn:
-            post_neuron.pre_syn_input = self.is_exc * weight * self.dirac()
+            post_neuron.pre_syn_input = self.is_exc * weight * self.dirac() * self.weight_sens
 
     def dirac(self):
         return int(self.last_fired)

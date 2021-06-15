@@ -2,8 +2,9 @@ from matplotlib import pyplot as plt
 from Ex_1.Neurons import simulate_with_func, AELIF, LIF, ELIF
 
 
-def plot_mv_ms(mv, time_list, name="", top=None, bottom=None, save=False):
+def plot_mv_ms(mv, time_list, name="", top=None, bottom=None, save=False, max_x=0):
     plt.plot(time_list, mv)
+    plt.xlim(max_x, len(time_list)*0.03125)
     plt.ylim(top=top, bottom=bottom)
     plt.ylabel('Membrane Potential (mV)')
     plt.xlabel('Time (ms)')
@@ -18,6 +19,7 @@ def plot_current(current, time_list, name="", save=False, max_x=0):
     from matplotlib.pyplot import figure
     figure(figsize=(10, 5), dpi=80)
     plt.plot(time_list, current)
+    plt.xlim(max_x, len(time_list)*0.03125)
     plt.ylabel('Input current (pA)')
     plt.xlabel('Time (ms)')
     if name!="": name=" for "+name
