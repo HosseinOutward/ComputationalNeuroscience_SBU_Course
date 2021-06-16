@@ -68,16 +68,16 @@ if __name__ == "__main__":
                 for post_neuron in self.post_neurons:
                     self.connect_neurons(pre_neuron, post_neuron)
 
-    dt=0.03125;test_time=500;runtime=1500+test_time
+    dt=0.03125;test_time=300;runtime=2700+test_time
     time_steps=int(runtime//dt)
-    stdp_eng=STDP_engine(phi_p_e=0.01, phi_p_i=0.03,rate=40,
+    stdp_eng=STDP_engine(phi_p_e=0.01, phi_p_i=0.03,rate=20,
         phi_n_e=0.015, phi_n_i=0.045, w_max=1, tau_p=20, tau_n=20)
     model=CustomModel(n_type=AELIF, excit_count=12, inhib_count=0, J=0.5, stdp_eng=stdp_eng,
         n_config="dt="+str(dt)+", R=10, tau=8, theta=-40, U_rest=-75, U_reset=-65, U_spike=5, "
-        "weight_sens=45,ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
+        "weight_sens=43,ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
 
     u_history=[]; i_history=[]; w_his=[]; delay=50
-    freq = lambda x,f: 1 if (x*dt-f)%delay==0 else 0
+    freq = lambda x,f: 1 if (x*dt-f*0.7)%delay==0 else 0
     curr_func = lambda x: 0
     for t in range(time_steps):
         if t*dt%delay==0: patter_select=1 if random()<0.5 else 0
