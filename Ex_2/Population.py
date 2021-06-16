@@ -7,12 +7,11 @@ import pickle
 
 
 class FullyConnectedPopulation:
-    def __init__(self, n_type, n_config, J, excit_count, inhib_count, decay=1.015, stdp_eng=None):
+    def __init__(self, n_type, n_config, J, excit_count, inhib_count, stdp_eng=None):
         self.J=J
         self.neurons = []
         self.conection_count=0
         self.stdp_eng=stdp_eng
-        self.decay=decay
 
         for i in range(excit_count):
             self.neurons.append(eval('n_type(is_exc=True, ' + n_config + ')'))
@@ -60,6 +59,7 @@ class FullyConnectedPopulation:
     def fix_neurons(self, input_spike_list, output_spike_list):
         for neuron, to_spike in zip(
                 self.input_neurons+self.output_neurons, input_spike_list+output_spike_list):
+            neuron.syn_input=0;neuron.pre_syn_input=0
             if to_spike: neuron.U=neuron.U_spike+10
             elif neuron.U>neuron.U_reset: neuron.U=neuron.U_reset
 
@@ -72,8 +72,8 @@ class FullyConnectedPopulation:
             i_history.append(curr)
 
         for neuron in self.neurons:
-            neuron.syn_input = neuron.pre_syn_input
-            neuron.pre_syn_input/=self.decay
+            neuron.syn_input += neuron.pre_syn_input
+            neuron.pre_syn_input = 0
             if self.stdp_eng!=None and neuron.last_fired: self.stdp_eng.train(neuron)
 
         if neuron.internal_clock%20==0: print(neuron.internal_clock)
@@ -149,19 +149,19 @@ if __name__ == "__main__":
 
     dt=0.03125
     model = GaussianFullyConnectedPops(
-        J=6, sigma=1, decay=1.01,
+        J=6, sigma=1,
         post_pop=FixedCouplingPopulation(
-            n_type=AELIF, excit_count=1, inhib_count=0, J=6.5, prob=0.01,
+            n_type=AELIF, excit_count=50, inhib_count=5, J=6.5, prob=0.01,
             n_config="dt="+str(dt)+", R=10, tau=8, theta=-40, U_rest=-75, U_reset=-65, U_spike=5, "
                      "weight_sens=1, ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100"),
         pre_pop=FullyConnectedPopulation(
-            n_type=AELIF, excit_count=1, inhib_count=0, J=2.5,
+            n_type=AELIF, excit_count=40, inhib_count=4, J=2.5,
             n_config="dt="+str(dt)+", R=10, tau=8, theta=-40, U_rest=-75, U_reset=-65, U_spike=5, "
                      "weight_sens=1, ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
         )
 
     # model.draw_graph()
-    runtime=1000; time_steps=int(runtime//dt)
+    runtime=300; time_steps=int(runtime//dt)
     curr_func = lambda x: 1515*(sin(x/time_steps*3.3+1)+1) # limited_sin(time_steps)
     u_history=[]; i_history=[]
     plot_current([curr_func(t) for t in range(time_steps)], arange(0,runtime, dt))

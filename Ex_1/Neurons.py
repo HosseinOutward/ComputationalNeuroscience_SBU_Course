@@ -18,6 +18,7 @@ class LIF:
         self.last_fired=False
         self.is_exc = 1 if is_exc else -1
 
+        self.delay=0
         self.weight_sens=weight_sens
         self.internal_clock = 0
         self.t_fired=[]
@@ -41,13 +42,19 @@ class LIF:
 
         self.ref_time = max(self.ref_time-self.dt, 0)
 
+
         if self.last_fired or self.ref_time!=0:
             self.last_fired=False
             self.U=self.U_reset
             return self.U, I_t
 
         self.change_u(I_t)
-        self.U += self.syn_input
+
+
+        # if self.syn_input!=0 and self.post_syn==[]:
+        #     print(self.internal_clock,self.syn_input, self.U)
+        self.U+=self.syn_input
+        self.syn_input = 0
 
         if self.U >= self.theta: self.fire()
         # if len(self.t_fired)!=0 and self.internal_clock <= self.t_fired[-1]+1: self.send_pulse()
@@ -57,7 +64,8 @@ class LIF:
 
     def send_pulse(self):
         for (post_neuron, weight) in self.post_syn:
-            post_neuron.pre_syn_input = self.is_exc * weight * self.dirac() * self.weight_sens
+            post_neuron.pre_syn_input = self.is_exc * weight * \
+                            self.dirac() * post_neuron.weight_sens
 
     def dirac(self):
         return int(self.last_fired)
@@ -95,9 +103,9 @@ class AELIF(ELIF):
         F=self.U_rest - u + self.delta_t*exp((u-self.theta_rh)/self.delta_t)
         self.U += (F + self.R*I_t - self.R*self.w_k) * self.dt / self.tau
 
-    # def simulate_one_step(self, I_t):
-    #     u, _ = super(AELIF, self).simulate_one_step(I_t)
-    #     return u, self.w_k
+    def simulate_one_step(self, I_t):
+        u, _ = super(AELIF, self).simulate_one_step(I_t)
+        return u, self.w_k
 
 
 def simulate_with_func(n_type, run_time, curr_func, dt, n_config, *args, **kwargs):
