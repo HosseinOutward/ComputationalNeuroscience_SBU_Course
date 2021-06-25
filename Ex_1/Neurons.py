@@ -48,6 +48,7 @@ class LIF:
 
         self.change_u(I_t)
 
+        # if self.syn_input>0: print(self.syn_input)
         self.U+=self.syn_input
         self.syn_input = 0
 

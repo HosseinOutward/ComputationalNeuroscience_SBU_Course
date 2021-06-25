@@ -9,7 +9,7 @@ class STDP_engine:
         self.phi_n_i, self.w_max, self.tau_p, self.tau_n = phi_n_i, w_max, tau_p, tau_n
         self.rate=rate
 
-    def w_func(self, x, pre_w, is_exc, testing=True):
+    def w_func(self, x, pre_w, is_exc):
         is_exc = True if is_exc == 1 else False
         if x >= 0:
             phi = self.phi_p_e if is_exc else self.phi_p_i
@@ -17,26 +17,37 @@ class STDP_engine:
         else:
             phi = self.phi_n_e if is_exc else self.phi_n_i
             a = -phi * pre_w; tau = self.tau_n
-        # if testing: print("time delta", x, " | delta", a*exp(x/tau)*10000//1/10000, " | w", pre_w*10000//1/10000)
+        # print("time delta", x, " | delta", a*exp(x/tau)*10000//1/10000, " | w", pre_w*10000//1/10000)
         return self.rate * a * exp(x / tau)
 
-    def train(self, neuron):
-        t_j=neuron.internal_clock; exc=neuron.is_exc
-        for i, (post_neuron, w) in enumerate(neuron.post_syn):
-            for t_i in post_neuron.t_fired:
-                w=neuron.post_syn[i][1]
-                neuron.post_syn[i][1] = (w+self.w_func(t_i-t_j, w, exc) if w>0 else 0)
+    def train_pre_to_post_syn(self, synapse):
+        t_j = synapse.last_inject_time[-1]
+        for t_i in synapse.post_n.t_fired:
+            synapse.w += self.w_func(t_i-t_j, synapse.w, synapse.pre_n.is_exc)
 
-        t_i=neuron.internal_clock
-        for i, pre_neuron in neuron.pre_syn:
-            exc=pre_neuron.is_exc
-            for t_j in pre_neuron.t_fired:
-                w=pre_neuron.post_syn[i][1]
-                pre_neuron.post_syn[i][1] = (w+self.w_func(t_i-t_j, w, exc) if w>0 else 0)
+    def train_post_to_pre_syn(self, post_neuron):
+        t_i = post_neuron.t_fired[-1]
+        for pre_synapse in post_neuron.pre_syn:
+            for t_j in pre_synapse.last_inject_time:
+                pre_synapse.w += self.w_func(t_i-t_j, pre_synapse.w, pre_synapse.pre_n.is_exc)
+
+    # def train(self, neuron):
+    #     t_j=neuron.internal_clock; exc=neuron.is_exc
+    #     for i, (post_neuron, w) in enumerate(neuron.post_syn):
+    #         for t_i in post_neuron.t_fired:
+    #             w=neuron.post_syn[i][1]
+    #             neuron.post_syn[i][1] = (w+self.w_func(t_i-t_j, w, exc) if w>0 else 0)
+    #
+    #     t_i=neuron.internal_clock
+    #     for i, pre_neuron in neuron.pre_syn:
+    #         exc=pre_neuron.is_exc
+    #         for t_j in pre_neuron.t_fired:
+    #             w=pre_neuron.post_syn[i][1]
+    #             pre_neuron.post_syn[i][1] = (w+self.w_func(t_i-t_j, w, exc) if w>0 else 0)
 
     def shape_of_w(self, min_x, max_x, pre_w, is_exc):
         x=[i/100 for i in range(min_x*100, max_x*100, 3)]
-        y=[self.w_func(i, pre_w, is_exc, testing=False) for i in x]
+        y=[self.w_func(i, pre_w, is_exc) for i in x]
 
         from matplotlib import pyplot as plt
         ax = plt.figure().add_subplot(1, 1, 1)
@@ -53,7 +64,7 @@ if __name__ == "__main__":
     from Ex_2.analysis import *
     from Ex_3.Analysis import *
     from math import sin
-    from random import random
+    from numpy import random
     from Ex_2.Population import FullyConnectedPopulation
 
     class CustomModel(FullyConnectedPopulation):
@@ -68,19 +79,22 @@ if __name__ == "__main__":
                 for post_neuron in self.post_neurons:
                     self.connect_neurons(pre_neuron, post_neuron)
 
-    dt=0.03125;test_time=300;runtime=2700+test_time
+    dt=0.03125;test_time=500;runtime=10000+test_time
     time_steps=int(runtime//dt)
     stdp_eng=STDP_engine(phi_p_e=0.01, phi_p_i=0.03,rate=20,
         phi_n_e=0.015, phi_n_i=0.045, w_max=1, tau_p=20, tau_n=20)
-    model=CustomModel(n_type=AELIF, excit_count=12, inhib_count=0, J=0.5, stdp_eng=stdp_eng,
+    model=CustomModel(n_type=AELIF, excit_count=12, inhib_count=0, J=3,
+        delay_range=(0,0), delay_seg=1, stdp_eng=stdp_eng,
         n_config="dt="+str(dt)+", R=10, tau=8, theta=-40, U_rest=-75, U_reset=-65, U_spike=5, "
-        "weight_sens=43,ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
+        "weight_sens=11,ref_period=2, ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
 
-    u_history=[]; i_history=[]; w_his=[]; delay=50
-    freq = lambda x,f: 1 if (x*dt-f*0.7)%delay==0 else 0
+    u_history=[]; i_history=[]; w_his=[]; train_delay=50
+    freq = lambda x,f: 1 if (x*dt-f*1)%train_delay==0 else 0
     curr_func = lambda x: 0
     for t in range(time_steps):
-        if t*dt%delay==0: patter_select=1 if random()<0.5 else 0
+        if t*dt%train_delay==0:
+            model.reset_synapse_charge()
+            patter_select=1 if random.random()<0.5 else 0
         if patter_select:
             forced_spike_input=[freq(t,5),freq(t,10),freq(t,5),freq(t,5),freq(t,10),freq(t,5),freq(t,10),0,0,0]
             forced_spike_output=[freq(t,15), freq(t,0)] if model.stdp_eng!=None else []
@@ -88,12 +102,10 @@ if __name__ == "__main__":
             forced_spike_input=[0,0,0,freq(t,5),freq(t,10),freq(t,5),freq(t,10),freq(t,5),freq(t,5),freq(t,10)]
             forced_spike_output=[freq(t,0),freq(t,15)] if model.stdp_eng!=None else []
 
-        # if forced_spike_output!=[0,0]: print(t, forced_spike_output, forced_spike_input)
-
-        model.fix_neurons(forced_spike_input,forced_spike_output)
+        model.set_neurons_state(forced_spike_input,forced_spike_output)
 
         u, cur = model.simulate_network_one_step(curr_func(t))
-        w_his.append([o_n.pre_syn[0][1].post_syn[o_n.pre_syn[0][0]][1] for o_n in model.output_neurons])
+        w_his.append([o_n.pre_syn[0].w for o_n in model.output_neurons])
         u_history.append(u)
         i_history.append(cur)
 

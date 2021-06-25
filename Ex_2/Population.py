@@ -15,6 +15,7 @@ class Synapse:
         self.delay_timer=0
         self.delay_multip=1
         self.inject_pulse=False
+        self.last_inject_time=[]
 
     def receive_pulse(self, input):
         self.synapse_charge.append([input*self.w, self.delay+self.dt*self.delay_multip])
@@ -29,7 +30,8 @@ class Synapse:
             self.synapse_charge[i][1] -= self.dt * self.delay_multip
         self.delay_multip=1
 
-        if stdp_eng is not None and self.inject_pulse: stdp_eng.train_syn(self)
+        if stdp_eng is not None and self.inject_pulse:
+            stdp_eng.train_pre_to_post_syn(self)
         self.inject_pulse=False
 
         count=0
@@ -37,6 +39,7 @@ class Synapse:
             if time_left>0: break
             self.post_n.syn_input += input_u * self.post_n.weight_sens
             self.inject_pulse = True
+            self.last_inject_time.append(self.pre_n.internal_clock)
         self.synapse_charge=self.synapse_charge[count:]
 
 
@@ -86,8 +89,8 @@ class FullyConnectedPopulation:
         import matplotlib.pyplot as plt
         ed=[]
         for pre_n_i, pre_neuron in enumerate(self.neurons):
-            for post_neuron, w in pre_neuron.post_syn:
-                ed.append([pre_n_i, self.neurons.index(post_neuron), w*1000//1/1000])
+            for synapse in pre_neuron.post_syn:
+                ed.append([pre_n_i, self.neurons.index(synapse.post_n), synapse.w*1000//1/1000])
         G = nx.DiGraph()
         G.add_weighted_edges_from(ed)
         pos = nx.drawing.nx_agraph.graphviz_layout(G, prog='dot', args="-Grankdir=LR")
@@ -99,12 +102,16 @@ class FullyConnectedPopulation:
 
         plt.show()
 
-    def fix_neurons(self, input_spike_list, output_spike_list):
-        for neuron, to_spike in zip(
-                self.input_neurons+self.output_neurons, input_spike_list+output_spike_list):
+    def set_neurons_state(self, input_spike_list, output_spike_list):
+        for neuron, to_spike in zip(self.input_neurons+self.output_neurons,
+                                    input_spike_list+output_spike_list):
             neuron.syn_input=0;neuron.pre_syn_input=0
             if to_spike: neuron.U=neuron.U_spike+10
             elif neuron.U>neuron.U_reset: neuron.U=neuron.U_reset
+
+    def reset_synapse_charge(self):
+        for neuron in self.neurons:
+            for post_syn in neuron.post_syn: post_syn.synapse_charge=[]
 
     def simulate_network_one_step(self, I_t):
         u_history=[]
@@ -116,6 +123,10 @@ class FullyConnectedPopulation:
 
         for neuron in self.neurons:
             for post_s in neuron.post_syn: post_s.simulate_synapse(self.stdp_eng)
+
+        if self.stdp_eng is not None:
+            for neuron in self.neurons:
+                if neuron.last_fired: self.stdp_eng.train_post_to_pre_syn(neuron)
 
         if neuron.internal_clock%20==0: print(neuron.internal_clock)
 
