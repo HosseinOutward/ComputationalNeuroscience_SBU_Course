@@ -12,20 +12,19 @@ class LIF:
         self.U_rest = U_rest
         self.U_reset = U_reset
         self.U_spike = U_spike
-        self.ref_time=ref_time
         self.ref_period=ref_period
         self.U = self.U_rest
-        self.last_fired=False
         self.is_exc = 1 if is_exc else -1
 
-        self.delay=0
-        self.weight_sens=weight_sens
-        self.internal_clock = 0
+        self.last_fired=False
         self.t_fired=[]
+        self.ref_time=ref_time
+        self.internal_clock = 0
+
         self.post_syn = []
-        self.pre_syn_input = 0
-        self.syn_input = 0
         self.pre_syn = []
+        self.syn_input = 0
+        self.weight_sens = weight_sens
 
     def change_u(self, I_t):
         self.U+=(self.U_rest - self.U + self.R * I_t) * self.dt / self.tau
@@ -42,7 +41,6 @@ class LIF:
 
         self.ref_time = max(self.ref_time-self.dt, 0)
 
-
         if self.last_fired or self.ref_time!=0:
             self.last_fired=False
             self.U=self.U_reset
@@ -50,22 +48,17 @@ class LIF:
 
         self.change_u(I_t)
 
-
-        # if self.syn_input!=0 and self.post_syn==[]:
-        #     print(self.internal_clock,self.syn_input, self.U)
         self.U+=self.syn_input
         self.syn_input = 0
 
         if self.U >= self.theta: self.fire()
-        # if len(self.t_fired)!=0 and self.internal_clock <= self.t_fired[-1]+1: self.send_pulse()
         if self.dirac() > 0: self.send_pulse()
 
         return self.U, I_t
 
     def send_pulse(self):
-        for (post_neuron, weight) in self.post_syn:
-            post_neuron.pre_syn_input = self.is_exc * weight * \
-                            self.dirac() * post_neuron.weight_sens
+        for syn in self.post_syn:
+            syn.receive_pulse(self.is_exc*self.dirac())
 
     def dirac(self):
         return int(self.last_fired)
@@ -98,7 +91,8 @@ class AELIF(ELIF):
     def change_u(self, I_t):
         u = self.U
 
-        self.w_k += (self.a*(u-self.U_rest) - self.w_k + self.tau_k*self.b*self.dirac()) * self.dt / self.tau_k
+        self.w_k += (self.a*(u-self.U_rest) - self.w_k + self.tau_k*
+                     self.b*self.dirac()) * self.dt / self.tau_k
 
         F=self.U_rest - u + self.delta_t*exp((u-self.theta_rh)/self.delta_t)
         self.U += (F + self.R*I_t - self.R*self.w_k) * self.dt / self.tau
@@ -126,7 +120,7 @@ if __name__ == "__main__":
     dt=0.03125; runtime = 100
 
     U_over_t, inter_curr, current = simulate_with_func(
-        n_type=AELIF, dt=0.03125, run_time=runtime, curr_func=lambda x: 2500,
+        n_type=AELIF, dt=dt, run_time=runtime, curr_func=lambda x: 2500,
         n_config="R=10, tau=8, theta=-40, U_rest=-70, U_reset=-65, U_spike=5, ref_period=2, "
                  "ref_time=0, theta_rh=-45, delta_t=2, a=0.01, b=500, tau_k=100")
 

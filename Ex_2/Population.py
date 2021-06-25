@@ -1,41 +1,84 @@
 from Ex_1.Neurons import *
-from numpy.random import normal as np_normal
-from numpy.random import random as np_random
-from numpy import arange
-from numpy import array
+from numpy.random import normal as np_normal, random as np_random
+from numpy import arange, array
 import pickle
 
 
+class Synapse:
+    def __init__(self, pre_n, post_n, w=0, delay=0):
+        self.pre_n=pre_n
+        self.post_n = post_n
+        self.w=w
+        self.dt=pre_n.dt
+        self.synapse_charge=[]
+        self.delay=delay
+        self.delay_timer=0
+        self.delay_multip=1
+        self.inject_pulse=False
+
+    def receive_pulse(self, input):
+        self.synapse_charge.append([input*self.w, self.delay+self.dt*self.delay_multip])
+
+    def simulate_synapse(self, stdp_eng=None):
+        if not self.synapse_charge: return None
+        if self.synapse_charge[0][1]>=self.dt*self.delay_multip and not self.inject_pulse:
+            self.delay_multip+=1
+            return None
+
+        for i, _ in enumerate(self.synapse_charge):
+            self.synapse_charge[i][1] -= self.dt * self.delay_multip
+        self.delay_multip=1
+
+        if stdp_eng is not None and self.inject_pulse: stdp_eng.train_syn(self)
+        self.inject_pulse=False
+
+        count=0
+        for count, (input_u, time_left) in enumerate(self.synapse_charge, start=1):
+            if time_left>0: break
+            self.post_n.syn_input += input_u * self.post_n.weight_sens
+            self.inject_pulse = True
+        self.synapse_charge=self.synapse_charge[count:]
+
+
 class FullyConnectedPopulation:
-    def __init__(self, n_type, n_config, J, excit_count, inhib_count, stdp_eng=None):
+    def __init__(self, J=0.5, stdp_eng=None, delay_range=(0,0), delay_seg=0, *args, **kwargs):
+        self.delay_range=delay_range
+        if delay_range[0]==delay_range[1]: delay_seg=1
+        self.delay_period=(delay_range[1]-delay_range[0])/delay_seg
+        self.delay_seg=delay_seg
+
         self.J=J
         self.neurons = []
-        self.conection_count=0
         self.stdp_eng=stdp_eng
 
+        self.populate_neurons(*args, **kwargs)
+        self.connection_count=delay_seg*len(self.neurons)
+
+        self.create_network()
+
+    def populate_neurons(self, n_type=None, n_config=None, excit_count=None, inhib_count=None, *args, **kwargs):
         for i in range(excit_count):
             self.neurons.append(eval('n_type(is_exc=True, ' + n_config + ')'))
         for i in range(inhib_count):
             self.neurons.append(eval('n_type(is_exc=False, ' + n_config + ')'))
 
-        self.create_network()
-
     def create_network(self):
         for pre_neuron in self.neurons:
             for post_neuron in self.neurons:
-                self.connect_neurons(pre_neuron, post_neuron)
+                if post_neuron != pre_neuron and self.decide_to_connect():
+                    self.connect_neurons(pre_neuron, post_neuron)
 
     def connect_neurons(self, pre_neuron, post_neuron):
-        if self.decide_to_connect() and post_neuron != pre_neuron:
-            self.conection_count += 1
-            pre_neuron.post_syn.append([post_neuron, self.decide_weight()])
-            post_neuron.pre_syn.append([len(pre_neuron.post_syn) - 1, pre_neuron])
+        for delay in arange(self.delay_seg):
+            syn=Synapse(pre_neuron, post_neuron, self.decide_weight(), delay)
+            pre_neuron.post_syn.append(syn)
+            post_neuron.pre_syn.append(syn)
 
     def decide_to_connect(self):
         return True
 
     def decide_weight(self):
-        return self.J / self.conection_count + np_normal(0.0, 0.001)
+        return self.J / self.connection_count + np_normal(0.0, 0.001)
 
     def draw_graph(self):
         import networkx as nx
@@ -72,9 +115,7 @@ class FullyConnectedPopulation:
             i_history.append(curr)
 
         for neuron in self.neurons:
-            neuron.syn_input += neuron.pre_syn_input
-            neuron.pre_syn_input = 0
-            if self.stdp_eng!=None and neuron.last_fired: self.stdp_eng.train(neuron)
+            for post_s in neuron.post_syn: post_s.simulate_synapse(self.stdp_eng)
 
         if neuron.internal_clock%20==0: print(neuron.internal_clock)
 
@@ -90,7 +131,7 @@ class FixedCouplingPopulation(FullyConnectedPopulation):
         return np_random() < self.prob
 
     def decide_weight(self):
-        return self.J/self.conection_count/self.prob + np_normal(0.0, 0.01)
+        return self.J/self.connection_count/self.prob + np_normal(0.0, 0.01)
 
 
 class GaussianFullyConnected(FullyConnectedPopulation):
@@ -99,27 +140,20 @@ class GaussianFullyConnected(FullyConnectedPopulation):
         self.sigma = sigma
 
     def decide_weight(self):
-        return np_normal(self.J/self.conection_count, self.sigma/self.conection_count)
+        return np_normal(self.J/self.connection_count, self.sigma/self.connection_count)
 
 
 # ************* 2 population *************
 class FullyConnectedPops(FullyConnectedPopulation):
-    def __init__(self, J, pre_pop, post_pop, decay=1.015, stdp_eng=None):
-        self.J=J
+    def populate_neurons(self, pre_pop=None, post_pop=None, *args, **kwargs):
         self.pre_pop = pre_pop
         self.post_pop = post_pop
         self.neurons = pre_pop.neurons+post_pop.neurons
-        self.conection_count=0
-        self.stdp_eng=stdp_eng
-        self.decay=decay
-
-        self.create_network()
 
     def create_network(self):
         for pre_neuron in self.pre_pop.neurons:
             for post_neuron in self.post_pop.neurons:
                 self.connect_neurons(pre_neuron, post_neuron)
-
 
 class FixedCouplingPops(FullyConnectedPops):
     def __init__(self, prob, *args, **kwargs):
@@ -130,7 +164,7 @@ class FixedCouplingPops(FullyConnectedPops):
         return np_random() < self.prob
 
     def decide_weight(self):
-        return self.J/self.conection_count/self.prob + np_normal(0.0, 0.01)
+        return self.J/self.connection_count/self.prob + np_normal(0.0, 0.01)
 
 
 class GaussianFullyConnectedPops(FullyConnectedPops):
@@ -139,7 +173,7 @@ class GaussianFullyConnectedPops(FullyConnectedPops):
         super(GaussianFullyConnectedPops, self).__init__(*args, **kwargs)
 
     def decide_weight(self):
-        return np_normal(self.J/self.conection_count, self.sigma/self.conection_count)
+        return np_normal(self.J/self.connection_count, self.sigma/self.connection_count)
 
 
 if __name__ == "__main__":
@@ -147,9 +181,10 @@ if __name__ == "__main__":
     from Ex_2.analysis import *
     from math import sin
 
+    global dt
     dt=0.03125
     model = GaussianFullyConnectedPops(
-        J=6, sigma=1,
+        J=6, sigma=1, delay_range=(1,5), delay_seg=4,
         post_pop=FixedCouplingPopulation(
             n_type=AELIF, excit_count=50, inhib_count=5, J=6.5, prob=0.01,
             n_config="dt="+str(dt)+", R=10, tau=8, theta=-40, U_rest=-75, U_reset=-65, U_spike=5, "
@@ -161,7 +196,7 @@ if __name__ == "__main__":
         )
 
     # model.draw_graph()
-    runtime=300; time_steps=int(runtime//dt)
+    runtime=600; time_steps=int(runtime//dt)
     curr_func = lambda x: 1515*(sin(x/time_steps*3.3+1)+1) # limited_sin(time_steps)
     u_history=[]; i_history=[]
     plot_current([curr_func(t) for t in range(time_steps)], arange(0,runtime, dt))
