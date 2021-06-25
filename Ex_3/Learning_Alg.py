@@ -79,7 +79,7 @@ if __name__ == "__main__":
                 for post_neuron in self.post_neurons:
                     self.connect_neurons(pre_neuron, post_neuron)
 
-    dt=0.03125;test_time=500;runtime=10000+test_time
+    dt=0.03125;test_time=300;runtime=1500+test_time
     time_steps=int(runtime//dt)
     stdp_eng=STDP_engine(phi_p_e=0.01, phi_p_i=0.03,rate=20,
         phi_n_e=0.015, phi_n_i=0.045, w_max=1, tau_p=20, tau_n=20)
